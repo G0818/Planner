@@ -1326,6 +1326,9 @@
       studyReminderSaveBtn.addEventListener("click", () => {
         studyReminderTime = studyReminderInput.value;
         localStorage.setItem(STUDY_REMINDER_TIME_KEY, studyReminderTime || "");
+
+        console.log("[DEBUG] 저장된 studyReminderTime =", studyReminderTime);
+
         alert("공부 시작 알림 시간이 저장되었습니다.");
       });
     }
@@ -2734,8 +2737,7 @@
     }
 
     // 1초마다 알림 조건 체크 (부하 거의 없음)
-    setInterval(checkScheduledNotifications, 1000);
-
+    setInterval(checkScheduledNotifications, 100);
 
     // ===== To-do 스타일 라디오 적용 =====
     const todoStyleRadios = document.querySelectorAll('input[name="todo-style"]');
