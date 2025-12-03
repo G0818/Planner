@@ -2781,6 +2781,11 @@
       setDoc,
       getDoc
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+    import {
+      getMessaging,
+      getToken,
+      onMessage
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-messaging.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyC-OtOZzkLk1f70wWegmv2zDcCJqlFZlLA",
@@ -2795,7 +2800,75 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const messaging = getMessaging(app);
     const provider = new GoogleAuthProvider();
+
+    // FCM 토큰 생성 + Firestore 저장
+    async function initFcmForUser(user) {
+      try {
+        if (!("Notification" in window)) {
+          console.log("[FCM] 이 브라우저는 Notification API 미지원");
+          return;
+        }
+
+        // 알림 권한 요청
+        let permission = Notification.permission;
+        if (permission !== "granted") {
+          permission = await Notification.requestPermission();
+        }
+        if (permission !== "granted") {
+          console.log("[FCM] 알림 권한이 허용되지 않음");
+          return;
+        }
+
+        // VAPID 공개키 꼭 네 걸로 교체!!
+        const token = await getToken(messaging, {
+          vapidKey: "여기에_네_VAPID_PUBLIC_KEY_문자열_붙여넣기"
+        });
+
+        if (!token) {
+          console.log("[FCM] 토큰을 가져오지 못함");
+          return;
+        }
+
+        console.log("[FCM] 브라우저 토큰:", token);
+
+        // 선택: 로컬에도 저장해 두기
+        try {
+          localStorage.setItem("study_os_fcm_token", token);
+        } catch (e) {
+          console.warn("[FCM] 로컬 저장 실패", e);
+        }
+
+        // Firestore: users/{uid}/devices/{token}
+        const deviceRef = doc(db, "users", user.uid, "devices", token);
+        await setDoc(
+          deviceRef,
+          {
+            token,
+            platform: navigator.userAgent,
+            updatedAt: Date.now()
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        console.error("[FCM] initFcmForUser 오류", err);
+      }
+    }
+
+    // 앱이 켜져 있을 때 오는 푸시(포그라운드) 처리
+    onMessage(messaging, (payload) => {
+      console.log("[FCM] 포그라운드 메시지:", payload);
+      const title = payload.notification?.title || "My Study OS";
+      const body = payload.notification?.body || "";
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, {
+          body,
+          icon: "/My-Study-OS/icon-192.png"
+        });
+      }
+    });
 
     const loginBtn   = document.getElementById("google-login-btn");
     const logoutBtn  = document.getElementById("google-logout-btn");
@@ -2873,19 +2946,44 @@
       loadCloud(user);
     });
 
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
         statusEl.textContent = `로그인됨: ${user.displayName || user.email}`;
         loginBtn.style.display = "none";
         logoutBtn.style.display = "inline-flex";
         backupBtn.disabled = false;
         restoreBtn.disabled = false;
+
+        // ✅ 로그인된 유저에 대해 FCM 토큰 등록
+        await initFcmForUser(user);
       } else {
         statusEl.textContent = "로그인되어 있지 않습니다.";
         loginBtn.style.display = "inline-flex";
         logoutBtn.style.display = "none";
         backupBtn.disabled = true;
         restoreBtn.disabled = true;
+      }
+    });
+
+    // ===== 포그라운드 FCM 메시지 처리 =====
+    onMessage(messaging, (payload) => {
+      console.log("[FCM] 포그라운드 메시지 수신:", payload);
+
+      const title =
+        (payload.notification && payload.notification.title) ||
+        "My Study OS";
+      const body =
+        (payload.notification && payload.notification.body) ||
+        "";
+
+      // 이미 앞에서 만든 로컬 알림 함수를 재사용
+      if (typeof showLocalNotification === "function") {
+        showLocalNotification(title, body);
+      } else if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, {
+          body,
+          icon: "/My-Study-OS/icon-192.png"
+        });
       }
     });
 
