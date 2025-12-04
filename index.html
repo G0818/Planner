@@ -482,6 +482,25 @@
       white-space: nowrap;
       cursor: pointer;
     }
+    
+    .todo-legend {
+      display: flex;
+      gap: 10px;
+      font-size: 0.75rem;
+      margin: 6px 0 10px;
+    }
+
+    .todo-legend .legend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 색상은 To-do 아이콘과 동일하게 */
+    .todo-legend .success { color: var(--success); }
+    .todo-legend .partial { color: var(--warning); }
+    .todo-legend .fail    { color: var(--danger); }
+    .todo-legend .none    { color: rgba(148,163,184,0.8); }
 
     /* POMODORO */
     #pomo-display {
@@ -885,6 +904,13 @@
           </div>
 
           <input id="todo-search" class="search-input" placeholder="To-do 검색…" />
+
+          <div class="todo-legend">
+            <span class="legend success">● 성공(완료)</span>
+            <span class="legend partial">● 부분 완료</span>
+            <span class="legend fail">● 실패</span>
+            <span class="legend none">● 미완료</span>
+          </div>
 
           <div class="input-row">
             <input type="text" id="todo-input" placeholder="이 기간 동안 해야 할 일을 적고 Enter 또는 추가 버튼을 눌러보세요." />
@@ -1586,14 +1612,16 @@
           renderCalendarSelectedTasks(selectedCalendarDateStr);
         });
 
-        // ★ 고정 버튼
+        const pinnedId = getPinnedDdayId();
+
         const pinBtn = document.createElement("button");
         pinBtn.className = "tiny";
         pinBtn.textContent = item.id === pinnedId ? "★ 고정됨" : "☆ 고정";
+
         pinBtn.addEventListener("click", () => {
           setPinnedDdayId(item.id);
-          renderDDays();
-          renderCalendarSelectedTasks(selectedCalendarDateStr);
+          renderDDays();                                    // 리스트 갱신
+          renderCalendarSelectedTasks(selectedCalendarDateStr);  // 아래 패널 갱신
         });
 
         // 오른쪽 버튼 영역
